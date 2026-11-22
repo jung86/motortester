@@ -61,6 +61,13 @@
   .tile.t1{border-color:#38bdf8}.tile.t1 svg{background:#0c4a6e}
   .tile.t2{border-color:#f59e0b}.tile.t2 svg{background:#78350f}
   .tile.t3{border-color:#64748b}.tile.t3 svg{background:#334155}
+  .tile.t4{border-color:#a78bfa}.tile.t4 svg{background:#3b2a6b}
+  .srow{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:14px;padding:10px 12px;margin-bottom:8px}
+  .srow .nm{flex:1;font-size:15px;font-weight:600}
+  .srow .nm small{display:block;font-size:12px;font-weight:400;color:var(--sub);margin-top:2px}
+  .srow button{width:40px;height:40px;padding:0;font-size:22px;border-radius:10px}
+  .srow .val{width:78px;text-align:center;color:var(--green);font-weight:700;font-size:15px}
+  #stNote{font-size:13px;color:var(--amber);text-align:center;margin:4px 0 10px}
   #ver{font-size:11px;color:#475569;text-align:center;margin-top:16px}
   .live{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .steps{list-style:none;margin:8px 0 0;padding:0}
@@ -90,12 +97,13 @@
   <button class="tile t1" data-go="run"><svg viewBox="0 0 52 52"><rect x="3" y="13" width="30" height="26" rx="6" fill="#7dd3fc"/><rect x="33" y="18" width="6" height="16" fill="#7dd3fc"/><rect x="39" y="24" width="7" height="4" fill="#7dd3fc"/><circle cx="47" cy="26" r="4" fill="#7dd3fc"/><path d="M14 19v14l11-7z" fill="#0c4a6e"/></svg><span class="tx">모터 런<small>정해진 전압 · 시간으로 모터 돌리기</small></span><span class="go">›</span></button>
   <button class="tile t2" data-go="breakin"><svg viewBox="0 0 52 52" fill="none" stroke="#fcd34d" stroke-width="5" stroke-linecap="round"><path d="M9 22a18 18 0 0 1 32-6"/><path d="M43 30a18 18 0 0 1-32 6"/><path d="M42 6v10H32" stroke-linejoin="round"/><path d="M10 46V36h10" stroke-linejoin="round"/></svg><span class="tx">길들이기<small>정 · 역방향 단계별 길들이기 (약 19분)</small></span><span class="go">›</span></button>
   <button class="tile t3" id="tClock"><svg viewBox="0 0 52 52" fill="none" stroke="#e2e8f0" stroke-width="4" stroke-linecap="round"><circle cx="26" cy="26" r="20"/><path d="M26 14v12h9"/></svg><span class="tx">기기 시계<small>기기를 시계 화면으로 바꾸기</small></span><span class="go">›</span></button>
+  <button class="tile t4" data-go="settings"><svg viewBox="0 0 52 52"><g fill="#c4b5fd"><circle cx="26" cy="26" r="15"/><rect x="22" y="4" width="8" height="44" rx="3"/><rect x="4" y="22" width="44" height="8" rx="3"/><rect x="22" y="4" width="8" height="44" rx="3" transform="rotate(45 26 26)"/><rect x="22" y="4" width="8" height="44" rx="3" transform="rotate(-45 26 26)"/></g><circle cx="26" cy="26" r="7" fill="#3b2a6b"/></svg><span class="tx">설정<small>밝기 · 마이크 감도 · 진동 감도 등</small></span><span class="go">›</span></button>
 </div>
 <div class="btns">
   <button id="sync" class="wide" disabled>시간 동기화</button>
   <button id="install" class="wide">홈 화면에 설치</button>
 </div>
-<div id="ver">앱 버전 8</div>
+<div id="ver">앱 버전 9</div>
 </section>
 
 <section class="page" id="pgMeasure">
@@ -168,6 +176,13 @@
 <div class="btns"><button class="wide" disabled>시작</button></div>
 </section>
 
+<section class="page" id="pgSet">
+<div id="stNote">블루투스를 연결하면 기기 설정을 바꿀 수 있어요</div>
+<div id="stList"></div>
+<div class="btns"><button class="wide" id="stDef">기본값으로 되돌리기</button></div>
+<div class="sec" style="text-align:center">바꾸면 기기에 바로 저장돼요 (전원을 꺼도 유지)</div>
+</section>
+
 <div id="log"></div>
 
 <script>
@@ -196,7 +211,7 @@ document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible' && dev && dev.gatt.connected) keepAwake(true);
 });
 function setConn(on,txt){ $('dot').classList.toggle('on',on); $('stxt').textContent=txt; $('sync').disabled=!on;
-  ['bLearn','bHold'].forEach(id=>$(id).disabled=!(on&&cmdCh)); if(!on){devState=-1;showState(-1,0);}
+  ['bLearn','bHold'].forEach(id=>$(id).disabled=!(on&&cmdCh)); if(!on){devState=-1;showState(-1,0);stv=null;} if(typeof stv!=='undefined') renderSettings();
   $('conn').textContent = on ? '연결 끊기' : '블루투스 연결'; $('conn').classList.toggle('pri',!on); }
 
 function pad(n){return String(n).padStart(2,'0');}
@@ -230,13 +245,14 @@ function showState(st,learned){
   $('bLearn').classList.toggle('on',st===2);
   if(st!==lastSt){                       // 기기에서 화면을 바꾸면 앱도 따라가기
     lastSt=st;
-    const p = (st===0||st===1||st===2)?'measure' : st===4?'menu' : st===5?'run' : st===6?'breakin' : null;
+    const p = (st===0||st===1||st===2)?'measure' : st===4?'menu' : st===5?'run' : st===6?'breakin' : st===7?'settings' : null;
     if(p && p!==page && Date.now()-cmdT>1500) go(p,false);
   }
 }
 
 function onData(ev){
   const s=new TextDecoder().decode(ev.target.value).trim();
+  if(s[0]==='S'){ stv=s.split(',').slice(1).map(Number); renderSettings(); return; }   // 설정값
   const parts=s.split(',').map(Number);
   const [f,r,v,ok]=parts;
   if(parts.length>=6){ devState=parts[4]; showState(devState,parts[5]); if(devState===1||devState===3||devState===4||devState===7) return; }
@@ -335,7 +351,8 @@ $('bHold').onclick  = ()=> sendCmd('HOLD');
 // ---- 화면(메뉴) 이동 ----
 let page='menu', lastSt=-1, cmdT=0, skipPop=false;
 const PAGES={menu:['pgMenu','⚙️ 모터 테스터','MENU'],measure:['pgMeasure','파노 측정','MEASURE'],
-             run:['pgRun','모터 런','RUN'],breakin:['pgBreak','모터 길들이기','BREAKIN']};
+             run:['pgRun','모터 런','RUN'],breakin:['pgBreak','모터 길들이기','BREAKIN'],
+             settings:['pgSet','설정','SETTINGS']};
 function go(p,send=true){
   if(p!=='menu' && page==='menu') history.pushState({p},'');
   else if(p!=='menu') history.replaceState({p},'');
@@ -347,7 +364,39 @@ function go(p,send=true){
   if(p==='measure') setTimeout(drawChart,0);
   scrollTo(0,0);
   if(send && cmdCh){ cmdT=Date.now(); sendCmd(PAGES[p][2]); }
+  else if(p==='settings' && cmdCh) sendCmd('GETSET');
+  if(p==='settings') renderSettings();
 }
+// ---- 설정 (기기에 저장됨) ----
+const LV5=['매우 낮음','낮음','보통','높음','매우 높음'];
+const ST=[['화면 밝기','기기 화면 밝기',['1 / 5','2 / 5','3 / 5','4 / 5','5 / 5']],
+          ['마이크 감도','경기장처럼 시끄러우면 낮게',LV5],
+          ['진동 감도','작은 떨림까지 보려면 높게',LV5],
+          ['인식 상한','이보다 높은 파노는 무시',['600 Hz','700 Hz','800 Hz','1000 Hz','1500 Hz']],
+          ['소음 중 값 유지','잠깐 놓쳐도 마지막 값 유지',['안 함','3 초','5 초','10 초']],
+          ['자동 시계 전환','신호 없을 때 시계로',['끄기','30초','1분','3분','5분']],
+          ['시계 화면 꺼짐','시계 화면을 끄는 시간',['끄기','5분','10분','30분']]];
+let stv=null;
+function renderSettings(){
+  const ok = !!(cmdCh && stv);
+  $('stNote').style.display = ok ? 'none' : 'block';
+  $('stDef').disabled = !ok;
+  $('stList').innerHTML = ST.map(([n,d,o],k)=>{
+    const v = stv ? stv[k] : -1;
+    return `<div class="srow"><div class="nm">${n}<small>${d}</small></div>`+
+      `<button data-k="${k}" data-d="-1" ${!ok||v<=0?'disabled':''}>−</button>`+
+      `<div class="val">${v>=0?o[v]:'-'}</div>`+
+      `<button data-k="${k}" data-d="1" ${!ok||v>=o.length-1?'disabled':''}>+</button></div>`;
+  }).join('');
+}
+$('stList').onclick=e=>{
+  const b=e.target.closest('button[data-k]'); if(!b||!stv) return;
+  const k=+b.dataset.k, v=stv[k]+(+b.dataset.d);
+  if(v<0||v>=ST[k][2].length) return;
+  stv[k]=v; renderSettings(); sendCmd(`SET ${k} ${v}`);
+};
+$('stDef').onclick=()=>{ if(confirm('모든 설정을 기본값으로 되돌릴까요?')) sendCmd('DEFAULT'); };
+renderSettings();
 addEventListener('popstate',()=>{ if(skipPop){skipPop=false;return;} if(page!=='menu') go('menu'); });
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
 $('back').onclick=()=>go('menu');
