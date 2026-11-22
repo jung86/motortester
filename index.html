@@ -68,6 +68,13 @@
   .srow button{width:40px;height:40px;padding:0;font-size:22px;border-radius:10px}
   .srow .val{width:78px;text-align:center;color:var(--green);font-weight:700;font-size:15px}
   #stNote{font-size:13px;color:var(--amber);text-align:center;margin:4px 0 10px}
+  #authBox{display:none;position:fixed;inset:0;background:rgba(2,6,23,.85);z-index:10;align-items:center;justify-content:center;padding:24px}
+  #authBox.show{display:flex}
+  #authBox .in{background:var(--card);border-radius:20px;padding:22px 20px;text-align:center;width:100%;max-width:340px}
+  #authBox h2{font-size:19px;margin:0 0 6px}
+  #authBox p{font-size:14px;color:var(--sub);margin:6px 0;line-height:1.5}
+  #authCode{font-size:44px;font-weight:800;letter-spacing:6px;color:var(--amber);margin:10px 0;font-variant-numeric:tabular-nums}
+  #myCode{font-size:11px;color:#475569;text-align:center;margin-top:4px}
   #ver{font-size:11px;color:#475569;text-align:center;margin-top:16px}
   .live{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .steps{list-style:none;margin:8px 0 0;padding:0}
@@ -103,7 +110,8 @@
   <button id="sync" class="wide" disabled>시간 동기화</button>
   <button id="install" class="wide">홈 화면에 설치</button>
 </div>
-<div id="ver">앱 버전 9</div>
+<div id="ver">앱 버전 10</div>
+<div id="myCode"></div>
 </section>
 
 <section class="page" id="pgMeasure">
@@ -185,6 +193,14 @@
 
 <div id="log"></div>
 
+<div id="authBox"><div class="in">
+  <h2>기기에서 허용해 주세요</h2>
+  <p>처음 연결하는 휴대폰이에요.<br>기기 화면에 같은 코드가 떠요.</p>
+  <div id="authCode">----</div>
+  <p>코드가 같으면 기기에서 <b style="color:#86efac">[허용]</b>을 누르세요.<br>한 번 허용하면 다음부터는 바로 연결돼요.</p>
+  <button class="wide" id="authCancel" style="margin-top:10px;width:100%">취소</button>
+</div></div>
+
 <script>
 const SVC  = '6e400001-5a1e-4d2b-9c8a-6d6f746f7231';
 const TIME = '6e400002-5a1e-4d2b-9c8a-6d6f746f7231';
@@ -195,6 +211,15 @@ let dev=null, timeCh=null, dataCh=null, cmdCh=null, manualDisc=false, devState=-
 let listenCh=null, wakeLock=null;
 let pk={f:0,r:0,v:0}, hitT={f:0,r:0,v:0};
 const hist=[]; const rec=[];
+let authOK=false;
+// 이 휴대폰의 고유 번호 (처음 한 번 만들어서 저장). 기기 화면에는 끝 4자리가 확인 코드로 나옴
+let myId = null;
+try{ myId = localStorage.getItem('mtId'); }catch(e){}
+if(!myId || !/^[0-9a-f]{8}$/.test(myId)){
+  myId = Array.from(crypto.getRandomValues(new Uint8Array(4))).map(b=>b.toString(16).padStart(2,'0')).join('');
+  try{ localStorage.setItem('mtId', myId); }catch(e){}
+}
+const myCode = myId.slice(-4).toUpperCase();
 
 function log(t){ $('log').textContent=t; }
 
@@ -252,6 +277,14 @@ function showState(st,learned){
 
 function onData(ev){
   const s=new TextDecoder().decode(ev.target.value).trim();
+  if(s[0]==='A'){                                    // 허락 상태: A,상태,번호
+    const st=+s.split(',')[1];
+    if(st===1) onAuthed();
+    else if(st===0){ $('authCode').textContent=myCode; $('authBox').classList.add('show'); $('stxt').textContent='허용 기다리는 중'; }
+    else { $('authBox').classList.remove('show'); manualDisc=true; log('기기에서 연결을 거부했어요'); }
+    return;
+  }
+  if(!authOK && s[0]!=='S') onAuthed();              // 예전 펌웨어: 허락 절차 없이 바로 데이터가 옴
   if(s[0]==='S'){ stv=s.split(',').slice(1).map(Number); renderSettings(); return; }   // 설정값
   const parts=s.split(',').map(Number);
   const [f,r,v,ok]=parts;
@@ -322,15 +355,22 @@ async function attach(){
   if(listenCh) listenCh.removeEventListener('characteristicvaluechanged',onData);   // 재연결 때 중복 수신 방지
   dataCh.addEventListener('characteristicvaluechanged',onData);
   listenCh = dataCh;
-  lastSt=-1;
-  if(cmdCh){ cmdT=Date.now(); await sendCmd(PAGES[page][2]); }   // 기기도 앱과 같은 화면으로
+  lastSt=-1; authOK=false;
   await dataCh.startNotifications();
+  setConn(false,'확인 중…');
+  if(cmdCh) await sendCmd('HELLO '+myId);         // 이 휴대폰의 번호를 알려서 허락 받기
+}
+// 기기가 허락해 주면 (또는 예전 펌웨어라 허락 절차가 없으면)
+async function onAuthed(){
+  if(authOK) return;
+  authOK=true; $('authBox').classList.remove('show');
   setConn(true,'연결됨');
   keepAwake(true);
+  if(cmdCh){ cmdT=Date.now(); await sendCmd(PAGES[page][2]); }   // 기기도 앱과 같은 화면으로
   await syncTime();
 }
 async function onDisc(){
-  timeCh=dataCh=cmdCh=null; setConn(false,'연결 끊김');
+  timeCh=dataCh=cmdCh=null; authOK=false; $('authBox').classList.remove('show'); setConn(false,'연결 끊김');
   if(manualDisc){manualDisc=false; keepAwake(false); return;}
   for(let i=0;i<5;i++){
     log(`재연결 시도 ${i+1}/5…`);
@@ -346,6 +386,8 @@ $('conn').onclick = ()=>{
   else connect();
 };
 $('sync').onclick = syncTime;
+$('authCancel').onclick = ()=>{ $('authBox').classList.remove('show'); if(dev && dev.gatt.connected){ manualDisc=true; dev.gatt.disconnect(); } };
+$('myCode').textContent = '이 휴대폰 확인 코드: '+myCode;
 $('bLearn').onclick = ()=>{ sendCmd('LEARN'); pk={f:0,r:0,v:0}; hitT={f:0,r:0,v:0}; log('소음 학습: 모터를 끄고 3초 기다려 주세요'); };
 $('bHold').onclick  = ()=> sendCmd('HOLD');
 // ---- 화면(메뉴) 이동 ----
