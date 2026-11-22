@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0f172a">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg">
-<title>모터 테스터</title>
+<title>야멍캠프</title>
 <style>
   :root{--bg:#0f172a;--card:#1e293b;--sub:#94a3b8;--green:#22c55e;--amber:#f59e0b;--sky:#38bdf8;--red:#ef4444;--txt:#f1f5f9}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -91,7 +91,7 @@
 </head>
 <body>
 <header>
-  <div class="hl"><button id="back" aria-label="메뉴로">‹</button><h1 id="title">⚙️ 모터 테스터</h1></div>
+  <div class="hl"><button id="back" aria-label="메뉴로">‹</button><h1 id="title">⚙️ 야멍캠프</h1></div>
   <div id="status"><span class="dot" id="dot"></span><span id="stxt">연결 안 됨</span></div>
 </header>
 
@@ -110,7 +110,7 @@
   <button id="sync" class="wide" disabled>시간 동기화</button>
   <button id="install" class="wide">홈 화면에 설치</button>
 </div>
-<div id="ver">앱 버전 10</div>
+<div id="ver">앱 버전 11</div>
 <div id="myCode"></div>
 </section>
 
@@ -340,7 +340,7 @@ function drawChart(){
 async function connect(){
   if(!navigator.bluetooth){ log('이 브라우저는 블루투스를 지원하지 않아요. 안드로이드 크롬에서 열어 주세요.'); return; }
   try{
-    dev = await navigator.bluetooth.requestDevice({filters:[{name:'MotorTester'}],optionalServices:[SVC]});
+    dev = await navigator.bluetooth.requestDevice({filters:[{name:"야멍캠프"},{name:"MotorTester"}],optionalServices:[SVC]});
     dev.ongattserverdisconnected = onDisc;   // 한 번만 연결 (중복 방지)
     await attach();
   }catch(e){ log('연결 취소/실패: '+e.message); }
@@ -392,7 +392,7 @@ $('bLearn').onclick = ()=>{ sendCmd('LEARN'); pk={f:0,r:0,v:0}; hitT={f:0,r:0,v:
 $('bHold').onclick  = ()=> sendCmd('HOLD');
 // ---- 화면(메뉴) 이동 ----
 let page='menu', lastSt=-1, cmdT=0, skipPop=false;
-const PAGES={menu:['pgMenu','⚙️ 모터 테스터','MENU'],measure:['pgMeasure','파노 측정','MEASURE'],
+const PAGES={menu:['pgMenu','⚙️ 야멍캠프','MENU'],measure:['pgMeasure','파노 측정','MEASURE'],
              run:['pgRun','모터 런','RUN'],breakin:['pgBreak','모터 길들이기','BREAKIN'],
              settings:['pgSet','설정','SETTINGS']};
 function go(p,send=true){

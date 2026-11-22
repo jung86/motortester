@@ -1,6 +1,6 @@
 {
-  "name": "모터 테스터",
-  "short_name": "모터테스터",
+  "name": "야멍캠프",
+  "short_name": "야멍캠프",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
