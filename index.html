@@ -150,7 +150,7 @@ async function sendCmd(c){
   }catch(e){ log('명령 실패: '+e.message); }
 }
 function showState(st,learned){
-  const names=['측정 중','멈춤','소음 학습 중','시계 화면','메뉴','모터 런','모터 길들이기'];
+  const names=['측정 중','멈춤','소음 학습 중','시계 화면','메뉴','모터 런','모터 길들이기','설정'];
   $('dstate').textContent = st<0 ? '' : '기기: '+(names[st]||'');
   $('bHold').textContent = st===1 ? '재개' : '멈춤';
   $('bHold').classList.toggle('on',st===1);
@@ -164,7 +164,7 @@ function onData(ev){
   const s=new TextDecoder().decode(ev.target.value).trim();
   const parts=s.split(',').map(Number);
   const [f,r,v,ok]=parts;
-  if(parts.length>=6){ devState=parts[4]; showState(devState,parts[5]); if(devState===1||devState===3||devState===4) return; }
+  if(parts.length>=6){ devState=parts[4]; showState(devState,parts[5]); if(devState===1||devState===3||devState===4||devState===7) return; }
   if(isNaN(f)) return;
   const valid = ok===1;
   const t=Date.now();
