@@ -50,11 +50,18 @@
   .page.show{display:block}
   .hl{display:flex;align-items:center;gap:6px}
   #back{display:none;background:none;padding:2px 10px 2px 0;font-size:26px;line-height:1;color:var(--txt)}
-  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
-  .tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;height:128px;border-radius:18px;font-size:17px}
-  .tile svg{width:52px;height:52px}
-  .tile.t0{background:#14532d}.tile.t1{background:#0c4a6e}.tile.t2{background:#78350f}.tile.t3{background:#334155}
-  .tile small{font-size:12px;font-weight:400;color:#cbd5e1}
+  .tiles{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+  .tile{display:flex;align-items:center;gap:14px;width:100%;min-height:76px;padding:12px 16px;border-radius:16px;text-align:left;background:var(--card);border-left:6px solid}
+  .tile svg{width:44px;height:44px;flex:none;padding:6px;border-radius:12px}
+  .tile .tx{flex:1;display:flex;flex-direction:column;gap:3px;font-size:18px}
+  .tile small{font-size:12.5px;font-weight:400;color:var(--sub)}
+  .tile .go{font-size:26px;color:#64748b;font-weight:400}
+  .tile:active{filter:brightness(1.3)}
+  .tile.t0{border-color:#22c55e}.tile.t0 svg{background:#14532d}
+  .tile.t1{border-color:#38bdf8}.tile.t1 svg{background:#0c4a6e}
+  .tile.t2{border-color:#f59e0b}.tile.t2 svg{background:#78350f}
+  .tile.t3{border-color:#64748b}.tile.t3 svg{background:#334155}
+  #ver{font-size:11px;color:#475569;text-align:center;margin-top:16px}
   .live{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .steps{list-style:none;margin:8px 0 0;padding:0}
   .steps li{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid #334155;font-size:15px}
@@ -79,15 +86,16 @@
   <button class="pri wide" id="conn">블루투스 연결</button>
 </div>
 <div class="tiles">
-  <button class="tile t0" data-go="measure"><svg viewBox="0 0 52 52" fill="none" stroke="#86efac" stroke-width="4" stroke-linecap="round"><path d="M3 26h6l5-14 7 28 7-22 6 16 5-8h10"/></svg>파노 측정</button>
-  <button class="tile t1" data-go="run"><svg viewBox="0 0 52 52"><rect x="3" y="13" width="30" height="26" rx="6" fill="#7dd3fc"/><rect x="33" y="18" width="6" height="16" fill="#7dd3fc"/><rect x="39" y="24" width="7" height="4" fill="#7dd3fc"/><circle cx="47" cy="26" r="4" fill="#7dd3fc"/><path d="M14 19v14l11-7z" fill="#0c4a6e"/></svg>모터 런</button>
-  <button class="tile t2" data-go="breakin"><svg viewBox="0 0 52 52" fill="none" stroke="#fcd34d" stroke-width="5" stroke-linecap="round"><path d="M9 22a18 18 0 0 1 32-6"/><path d="M43 30a18 18 0 0 1-32 6"/><path d="M42 6v10H32" stroke-linejoin="round"/><path d="M10 46V36h10" stroke-linejoin="round"/></svg>길들이기</button>
-  <button class="tile t3" id="tClock"><svg viewBox="0 0 52 52" fill="none" stroke="#e2e8f0" stroke-width="4" stroke-linecap="round"><circle cx="26" cy="26" r="20"/><path d="M26 14v12h9"/></svg>기기 시계<small>기기를 시계 화면으로</small></button>
+  <button class="tile t0" data-go="measure"><svg viewBox="0 0 52 52" fill="none" stroke="#86efac" stroke-width="4" stroke-linecap="round"><path d="M3 26h6l5-14 7 28 7-22 6 16 5-8h10"/></svg><span class="tx">파노 측정<small>모터 소리로 파노 · RPM · 진동 측정</small></span><span class="go">›</span></button>
+  <button class="tile t1" data-go="run"><svg viewBox="0 0 52 52"><rect x="3" y="13" width="30" height="26" rx="6" fill="#7dd3fc"/><rect x="33" y="18" width="6" height="16" fill="#7dd3fc"/><rect x="39" y="24" width="7" height="4" fill="#7dd3fc"/><circle cx="47" cy="26" r="4" fill="#7dd3fc"/><path d="M14 19v14l11-7z" fill="#0c4a6e"/></svg><span class="tx">모터 런<small>정해진 전압 · 시간으로 모터 돌리기</small></span><span class="go">›</span></button>
+  <button class="tile t2" data-go="breakin"><svg viewBox="0 0 52 52" fill="none" stroke="#fcd34d" stroke-width="5" stroke-linecap="round"><path d="M9 22a18 18 0 0 1 32-6"/><path d="M43 30a18 18 0 0 1-32 6"/><path d="M42 6v10H32" stroke-linejoin="round"/><path d="M10 46V36h10" stroke-linejoin="round"/></svg><span class="tx">길들이기<small>정 · 역방향 단계별 길들이기 (약 19분)</small></span><span class="go">›</span></button>
+  <button class="tile t3" id="tClock"><svg viewBox="0 0 52 52" fill="none" stroke="#e2e8f0" stroke-width="4" stroke-linecap="round"><circle cx="26" cy="26" r="20"/><path d="M26 14v12h9"/></svg><span class="tx">기기 시계<small>기기를 시계 화면으로 바꾸기</small></span><span class="go">›</span></button>
 </div>
 <div class="btns">
   <button id="sync" class="wide" disabled>시간 동기화</button>
   <button id="install" class="wide">홈 화면에 설치</button>
 </div>
+<div id="ver">앱 버전 8</div>
 </section>
 
 <section class="page" id="pgMeasure">
@@ -355,7 +363,11 @@ $('csv').onclick = ()=>{
 let deferred=null;
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;$('install').style.display='block';});
 $('install').onclick=async()=>{ if(!deferred)return; deferred.prompt(); await deferred.userChoice; deferred=null; $('install').style.display='none'; };
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator){                 // 새 버전이 올라오면 바로 받아서 새로고침
+  const hadCtrl = !!navigator.serviceWorker.controller; let reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(hadCtrl && !reloaded){ reloaded=true; location.reload(); } });
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+}
 addEventListener('resize',drawChart);
 </script>
 </body>
