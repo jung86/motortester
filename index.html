@@ -45,6 +45,11 @@
   .dev button.on{background:var(--amber);color:#1c1003}
   .dev button.learn.on{background:var(--sky);color:#04202e}
   #dstate{font-size:12px;color:var(--sub);float:right}
+  .dev.two{grid-template-columns:1fr 1fr}
+  .dev.mode{margin-top:8px}
+  .dev button.cur{background:var(--green);color:#052e16}
+  #modeNote{display:none;font-size:13px;line-height:1.5;color:var(--sub);background:#0b1222;border-radius:10px;padding:10px 12px;margin-top:8px}
+  #modeNote b{color:var(--amber)}
 </style>
 </head>
 <body>
@@ -83,11 +88,16 @@
 </div>
 
 <div class="sec">기기 조작 <span id="dstate"></span></div>
-<div class="dev">
+<div class="dev two">
   <button id="bLearn" class="learn" disabled>소음 학습</button>
   <button id="bHold" disabled>멈춤</button>
+</div>
+<div class="dev mode">
+  <button id="bMeasure" disabled>파노 측정</button>
+  <button id="bMenu" disabled>메뉴</button>
   <button id="bClock" disabled>시계</button>
 </div>
+<div id="modeNote"></div>
 
 <div class="sec">앱</div>
 <div class="btns">
@@ -124,7 +134,7 @@ document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible' && dev && dev.gatt.connected) keepAwake(true);
 });
 function setConn(on,txt){ $('dot').classList.toggle('on',on); $('stxt').textContent=txt; $('sync').disabled=!on;
-  ['bLearn','bHold','bClock'].forEach(id=>$(id).disabled=!(on&&cmdCh)); if(!on){devState=-1;showState(-1,0);}
+  ['bLearn','bHold','bMeasure','bMenu','bClock'].forEach(id=>$(id).disabled=!(on&&cmdCh)); if(!on){devState=-1;showState(-1,0);}
   $('conn').textContent = on ? '연결 끊기' : '블루투스 연결'; $('conn').classList.toggle('pri',!on); }
 
 function pad(n){return String(n).padStart(2,'0');}
@@ -156,8 +166,14 @@ function showState(st,learned){
   $('bHold').classList.toggle('on',st===1);
   $('bLearn').textContent = st===2 ? '학습 중…' : (learned ? '재학습' : '소음 학습');
   $('bLearn').classList.toggle('on',st===2);
-  $('bClock').textContent = st===3 ? '측정 화면' : '시계';
-  $('bClock').classList.toggle('on',st===3);
+  $('bMeasure').classList.toggle('cur',st===0||st===1||st===2);
+  $('bMenu').classList.toggle('cur',st===4||st===5||st===6||st===7);
+  $('bClock').classList.toggle('cur',st===3);
+  const note=$('modeNote');
+  if(st===6){ note.innerHTML='<b>모터 길들이기</b> (추천 순서, 총 약 19분)<br>1.5V → 2.0V → 2.5V → 3.0V<br>단계마다 정방향 2분 → 역방향 2분, 단계 사이 식히기 1분<br>※ 전원 장치·릴레이 연결 후 사용 가능'; note.style.display='block'; }
+  else if(st===5){ note.innerHTML='<b>모터 런</b> — 전원 장치·릴레이 연결 후 사용 가능<br>파노 측정은 계속 됩니다'; note.style.display='block'; }
+  else if(st===7){ note.innerHTML='<b>설정</b> — 기기 화면에서 조절 중'; note.style.display='block'; }
+  else note.style.display='none';
 }
 
 function onData(ev){
@@ -254,7 +270,9 @@ $('conn').onclick = ()=>{
 $('sync').onclick = syncTime;
 $('bLearn').onclick = ()=>{ sendCmd('LEARN'); pk={f:0,r:0,v:0}; hitT={f:0,r:0,v:0}; log('소음 학습: 모터를 끄고 3초 기다려 주세요'); };
 $('bHold').onclick  = ()=> sendCmd('HOLD');
-$('bClock').onclick = ()=> sendCmd(devState===3 ? 'MEASURE' : 'CLOCK');
+$('bClock').onclick = ()=> sendCmd('CLOCK');
+$('bMeasure').onclick = ()=> sendCmd('MEASURE');
+$('bMenu').onclick = ()=> sendCmd('MENU');
 $('reset').onclick = ()=>{ sendCmd('RESET'); pk={f:0,r:0,v:0}; hitT={f:0,r:0,v:0}; drawPeaks(Date.now()); log('피크 초기화'); };
 $('csv').onclick = ()=>{
   if(!rec.length){log('저장할 기록이 없어요');return;}
