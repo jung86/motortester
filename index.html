@@ -75,6 +75,9 @@
   #authBox p{font-size:14px;color:var(--sub);margin:6px 0;line-height:1.5}
   #authCode{font-size:44px;font-weight:800;letter-spacing:6px;color:var(--amber);margin:10px 0;font-variant-numeric:tabular-nums}
   #myCode{font-size:11px;color:#475569;text-align:center;margin-top:4px}
+  #splash{position:fixed;inset:0;background:#000;z-index:30;display:flex;align-items:center;justify-content:center;transition:opacity .5s}
+  #splash img{width:min(94vw,94vh);height:auto;border-radius:12px}
+  #splash.hide{opacity:0;pointer-events:none}
   #ver{font-size:11px;color:#475569;text-align:center;margin-top:16px}
   .live{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .steps{list-style:none;margin:8px 0 0;padding:0}
@@ -90,6 +93,7 @@
 </style>
 </head>
 <body>
+<div id="splash"><img src="splash.webp" alt="공구왕 야멍"></div>
 <header>
   <div class="hl"><button id="back" aria-label="메뉴로">‹</button><h1 id="title">⚙️ 야멍캠프</h1></div>
   <div id="status"><span class="dot" id="dot"></span><span id="stxt">연결 안 됨</span></div>
@@ -110,7 +114,7 @@
   <button id="sync" class="wide" disabled>시간 동기화</button>
   <button id="install" class="wide">홈 화면에 설치</button>
 </div>
-<div id="ver">앱 버전 11</div>
+<div id="ver">앱 버전 12</div>
 <div id="myCode"></div>
 </section>
 
@@ -220,6 +224,11 @@ if(!myId || !/^[0-9a-f]{8}$/.test(myId)){
   try{ localStorage.setItem('mtId', myId); }catch(e){}
 }
 const myCode = myId.slice(-4).toUpperCase();
+
+// 시작 화면: 1.8초 보여 주고 사라짐 (누르면 바로 넘어감)
+function hideSplash(){ const sp=$('splash'); if(!sp) return; sp.classList.add('hide'); setTimeout(()=>sp.remove(),600); }
+setTimeout(hideSplash,1800);
+$('splash').onclick=hideSplash;
 
 function log(t){ $('log').textContent=t; }
 
