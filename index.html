@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<title>모터 테스터</title>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--sub:#94a3b8;--green:#22c55e;--amber:#f59e0b;--sky:#38bdf8;--red:#ef4444;--txt:#f1f5f9}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;
+       padding:max(12px,env(safe-area-inset-top)) 14px 20px}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  h1{font-size:19px;margin:0}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#475569;margin-right:6px;vertical-align:middle}
+  .dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+  #status{font-size:13px;color:var(--sub)}
+  .card{background:var(--card);border-radius:16px;padding:14px 16px;margin-bottom:10px}
+  .lbl{font-size:13px;color:var(--sub);display:flex;justify-content:space-between}
+  .big{font-size:56px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:4px}
+  .mid{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+  .unit{font-size:16px;color:var(--sub);font-weight:400;margin-left:4px}
+  .peak{font-size:13px;color:var(--sub)}
+  .peak b{color:var(--txt)}
+  .peak.hit b{color:var(--red)}
+  .hit-txt{color:var(--red)!important}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .bar{height:8px;background:#0b1222;border-radius:4px;margin-top:8px;overflow:hidden}
+  .bar>div{height:100%;width:0;background:var(--amber);transition:width .15s}
+  canvas{width:100%;height:110px;display:block}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+  button{border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:600;color:#fff;background:#334155}
+  button.pri{background:var(--green);color:#052e16}
+  button:disabled{opacity:.4}
+  .wide{grid-column:1/-1}
+  .sig{font-size:12px;padding:2px 8px;border-radius:8px;background:#334155}
+  .sig.ok{background:#14532d;color:#86efac}
+  #log{font-size:12px;color:var(--sub);margin-top:10px;min-height:16px}
+  #install{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙️ 모터 테스터</h1>
+  <div id="status"><span class="dot" id="dot"></span><span id="stxt">연결 안 됨</span></div>
+</header>
+
+<div class="card">
+  <div class="lbl"><span>파노 (주파수)</span><span class="sig" id="sig">신호 없음</span></div>
+  <div class="big"><span id="freq">---</span><span class="unit">Hz</span></div>
+  <div class="peak" id="pkF">피크 <b id="pkFv">-</b> Hz</div>
+</div>
+
+<div class="row">
+  <div class="card">
+    <div class="lbl"><span>RPM (파노×60)</span></div>
+    <div class="mid" id="rpm">---</div>
+    <div class="peak" id="pkR">피크 <b id="pkRv">-</b></div>
+  </div>
+  <div class="card">
+    <div class="lbl"><span>진동</span></div>
+    <div class="mid" id="vib">---</div>
+    <div class="bar"><div id="vbar"></div></div>
+    <div class="peak" id="pkV">피크 <b id="pkVv">-</b></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="lbl"><span>파노 추이 (최근 60초)</span></div>
+  <canvas id="chart"></canvas>
+</div>
+
+<div class="btns">
+  <button class="pri wide" id="conn">블루투스 연결</button>
+  <button id="sync" disabled>시간 동기화</button>
+  <button id="reset">피크 초기화</button>
+  <button id="csv" class="wide">기록 저장 (CSV)</button>
+  <button id="install" class="wide">홈 화면에 설치</button>
+</div>
+<div id="log"></div>
+
+<script>
+const SVC  = '6e400001-5a1e-4d2b-9c8a-6d6f746f7231';
+const TIME = '6e400002-5a1e-4d2b-9c8a-6d6f746f7231';
+const DATA = '6e400003-5a1e-4d2b-9c8a-6d6f746f7231';
+const $ = id => document.getElementById(id);
+let dev=null, timeCh=null, dataCh=null, manualDisc=false;
+let pk={f:0,r:0,v:0}, hitT={f:0,r:0,v:0};
+const hist=[]; const rec=[];
+
+function log(t){ $('log').textContent=t; }
+function setConn(on,txt){ $('dot').classList.toggle('on',on); $('stxt').textContent=txt; $('sync').disabled=!on;
+  $('conn').textContent = on ? '연결 끊기' : '블루투스 연결'; $('conn').classList.toggle('pri',!on); }
+
+function pad(n){return String(n).padStart(2,'0');}
+function nowStr(){const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;}
+
+async function syncTime(){
+  if(!timeCh) return;
+  const s=nowStr(), b=new TextEncoder().encode(s);
+  try{
+    if(timeCh.properties.write && timeCh.writeValueWithResponse) await timeCh.writeValueWithResponse(b);
+    else if(timeCh.writeValueWithoutResponse) await timeCh.writeValueWithoutResponse(b);
+    else await timeCh.writeValue(b);
+    log('시간 동기화 완료: '+s);
+  }catch(e){ log('시간 동기화 실패: '+e.message); }
+}
+
+function onData(ev){
+  const s=new TextDecoder().decode(ev.target.value).trim();
+  const [f,r,v,ok]=s.split(',').map(Number);
+  if(isNaN(f)) return;
+  const valid = ok===1;
+  const t=Date.now();
+  $('sig').textContent = valid?'측정 중':'신호 없음'; $('sig').classList.toggle('ok',valid);
+  $('freq').textContent = valid? f.toFixed(1) : '---';
+  $('rpm').textContent  = valid? Math.round(r).toLocaleString() : '---';
+  $('vib').textContent  = isNaN(v)?'---':v.toFixed(3);
+  $('vbar').style.width = Math.min(100,(v||0)/0.5*100)+'%';
+  if(valid){
+    if(f>pk.f){pk.f=f;hitT.f=t;} if(r>pk.r){pk.r=r;hitT.r=t;}
+  }
+  if(v>pk.v){pk.v=v;hitT.v=t;}
+  drawPeaks(t);
+  hist.push({t,f:valid?f:null}); while(hist.length && t-hist[0].t>60000) hist.shift();
+  rec.push([new Date(t).toISOString(),f,r,v,valid?1:0]); if(rec.length>200000) rec.shift();
+  drawChart();
+}
+function drawPeaks(t){
+  $('pkFv').textContent = pk.f? pk.f.toFixed(1):'-';
+  $('pkRv').textContent = pk.r? Math.round(pk.r).toLocaleString():'-';
+  $('pkVv').textContent = pk.v? pk.v.toFixed(3):'-';
+  [['f','pkF','freq'],['r','pkR','rpm'],['v','pkV','vib']].forEach(([k,p,m])=>{
+    const h = hitT[k] && t-hitT[k]<1000;
+    $(p).classList.toggle('hit',h); $(m).classList.toggle('hit-txt',h);
+  });
+}
+setInterval(()=>drawPeaks(Date.now()),250);
+
+function drawChart(){
+  const c=$('chart'), dpr=devicePixelRatio||1, W=c.clientWidth, H=c.clientHeight;
+  if(c.width!==W*dpr){c.width=W*dpr;c.height=H*dpr;}
+  const g=c.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  const vals=hist.filter(p=>p.f!=null).map(p=>p.f);
+  if(!vals.length) return;
+  let lo=Math.min(...vals), hi=Math.max(...vals); if(hi-lo<20){const m=(hi+lo)/2;lo=m-10;hi=m+10;}
+  const now=Date.now();
+  g.strokeStyle='#334155'; g.lineWidth=1; g.beginPath(); g.moveTo(0,H/2); g.lineTo(W,H/2); g.stroke();
+  g.fillStyle='#94a3b8'; g.font='11px system-ui'; g.fillText(hi.toFixed(0),4,12); g.fillText(lo.toFixed(0),4,H-4);
+  g.strokeStyle='#38bdf8'; g.lineWidth=2; g.beginPath(); let pen=false;
+  for(const p of hist){
+    if(p.f==null){pen=false;continue;}
+    const x=W-(now-p.t)/60000*W, y=H-6-(p.f-lo)/(hi-lo)*(H-12);
+    pen? g.lineTo(x,y) : g.moveTo(x,y); pen=true;
+  }
+  g.stroke();
+}
+
+async function connect(){
+  if(!navigator.bluetooth){ log('이 브라우저는 블루투스를 지원하지 않아요. 안드로이드 크롬에서 열어 주세요.'); return; }
+  try{
+    dev = await navigator.bluetooth.requestDevice({filters:[{name:'MotorTester'}],optionalServices:[SVC]});
+    dev.addEventListener('gattserverdisconnected',onDisc);
+    await attach();
+  }catch(e){ log('연결 취소/실패: '+e.message); }
+}
+async function attach(){
+  setConn(false,'연결 중…');
+  const srv = await dev.gatt.connect();
+  const svc = await srv.getPrimaryService(SVC);
+  timeCh = await svc.getCharacteristic(TIME);
+  dataCh = await svc.getCharacteristic(DATA);
+  dataCh.addEventListener('characteristicvaluechanged',onData);
+  await dataCh.startNotifications();
+  setConn(true,'연결됨');
+  await syncTime();
+}
+async function onDisc(){
+  timeCh=dataCh=null; setConn(false,'연결 끊김');
+  if(manualDisc){manualDisc=false;return;}
+  for(let i=0;i<5;i++){
+    log(`재연결 시도 ${i+1}/5…`);
+    await new Promise(r=>setTimeout(r,2000));
+    try{ await attach(); log('재연결됨'); return; }catch(e){}
+  }
+  log('재연결 실패. 다시 연결을 눌러 주세요.');
+}
+
+$('conn').onclick = ()=>{
+  if(dev && dev.gatt.connected){ manualDisc=true; dev.gatt.disconnect(); }
+  else connect();
+};
+$('sync').onclick = syncTime;
+$('reset').onclick = ()=>{ pk={f:0,r:0,v:0}; hitT={f:0,r:0,v:0}; drawPeaks(Date.now()); log('피크 초기화'); };
+$('csv').onclick = ()=>{
+  if(!rec.length){log('저장할 기록이 없어요');return;}
+  const txt='time,freq_hz,rpm,vib,valid\n'+rec.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([txt],{type:'text/csv'}));
+  a.download='motor_'+nowStr().replace(/[: ]/g,'-')+'.csv'; a.click();
+};
+
+let deferred=null;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;$('install').style.display='block';});
+$('install').onclick=async()=>{ if(!deferred)return; deferred.prompt(); await deferred.userChoice; deferred=null; $('install').style.display='none'; };
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+addEventListener('resize',drawChart);
+</script>
+</body>
+</html>
