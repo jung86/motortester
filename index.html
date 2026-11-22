@@ -105,10 +105,24 @@ const DATA = '6e400003-5a1e-4d2b-9c8a-6d6f746f7231';
 const CMD  = '6e400004-5a1e-4d2b-9c8a-6d6f746f7231';
 const $ = id => document.getElementById(id);
 let dev=null, timeCh=null, dataCh=null, cmdCh=null, manualDisc=false, devState=-1;
+let listenCh=null, wakeLock=null;
 let pk={f:0,r:0,v:0}, hitT={f:0,r:0,v:0};
 const hist=[]; const rec=[];
 
 function log(t){ $('log').textContent=t; }
+
+// 연결 중에는 폰 화면이 꺼지지 않게
+async function keepAwake(on){
+  try{
+    if(on && 'wakeLock' in navigator && !wakeLock){
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release',()=>{ wakeLock=null; });
+    } else if(!on && wakeLock){ await wakeLock.release(); wakeLock=null; }
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible' && dev && dev.gatt.connected) keepAwake(true);
+});
 function setConn(on,txt){ $('dot').classList.toggle('on',on); $('stxt').textContent=txt; $('sync').disabled=!on;
   ['bLearn','bHold','bClock'].forEach(id=>$(id).disabled=!(on&&cmdCh)); if(!on){devState=-1;showState(-1,0);}
   $('conn').textContent = on ? '연결 끊기' : '블루투스 연결'; $('conn').classList.toggle('pri',!on); }
@@ -158,7 +172,7 @@ function onData(ev){
   $('freq').textContent = valid? f.toFixed(1) : '---';
   $('rpm').textContent  = valid? Math.round(r).toLocaleString() : '---';
   $('vib').textContent  = isNaN(v)?'---':v.toFixed(3);
-  $('vbar').style.width = Math.min(100,(v||0)/0.5*100)+'%';
+  $('vbar').style.width = Math.min(100,(v||0)/0.1*100)+'%';   // 0.1g = 가득
   if(valid){
     if(f>pk.f){pk.f=f;hitT.f=t;} if(r>pk.r){pk.r=r;hitT.r=t;}
   }
@@ -202,7 +216,7 @@ async function connect(){
   if(!navigator.bluetooth){ log('이 브라우저는 블루투스를 지원하지 않아요. 안드로이드 크롬에서 열어 주세요.'); return; }
   try{
     dev = await navigator.bluetooth.requestDevice({filters:[{name:'MotorTester'}],optionalServices:[SVC]});
-    dev.addEventListener('gattserverdisconnected',onDisc);
+    dev.ongattserverdisconnected = onDisc;   // 한 번만 연결 (중복 방지)
     await attach();
   }catch(e){ log('연결 취소/실패: '+e.message); }
 }
@@ -213,19 +227,23 @@ async function attach(){
   timeCh = await svc.getCharacteristic(TIME);
   dataCh = await svc.getCharacteristic(DATA);
   try{ cmdCh = await svc.getCharacteristic(CMD); }catch(e){ cmdCh=null; log('기기 펌웨어가 예전 버전이라 조작 버튼을 쓸 수 없어요'); }
+  if(listenCh) listenCh.removeEventListener('characteristicvaluechanged',onData);   // 재연결 때 중복 수신 방지
   dataCh.addEventListener('characteristicvaluechanged',onData);
+  listenCh = dataCh;
   await dataCh.startNotifications();
   setConn(true,'연결됨');
+  keepAwake(true);
   await syncTime();
 }
 async function onDisc(){
   timeCh=dataCh=cmdCh=null; setConn(false,'연결 끊김');
-  if(manualDisc){manualDisc=false;return;}
+  if(manualDisc){manualDisc=false; keepAwake(false); return;}
   for(let i=0;i<5;i++){
     log(`재연결 시도 ${i+1}/5…`);
     await new Promise(r=>setTimeout(r,2000));
     try{ await attach(); log('재연결됨'); return; }catch(e){}
   }
+  keepAwake(false);
   log('재연결 실패. 다시 연결을 눌러 주세요.');
 }
 
