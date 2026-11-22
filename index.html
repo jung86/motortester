@@ -114,7 +114,7 @@
   <button id="sync" class="wide" disabled>시간 동기화</button>
   <button id="install" class="wide">홈 화면에 설치</button>
 </div>
-<div id="ver">앱 버전 12</div>
+<div id="ver">앱 버전 13</div>
 <div id="myCode"></div>
 </section>
 
@@ -290,7 +290,7 @@ function onData(ev){
     const st=+s.split(',')[1];
     if(st===1) onAuthed();
     else if(st===0){ $('authCode').textContent=myCode; $('authBox').classList.add('show'); $('stxt').textContent='허용 기다리는 중'; }
-    else { $('authBox').classList.remove('show'); manualDisc=true; log('기기에서 연결을 거부했어요'); }
+    else { $('authBox').classList.remove('show'); manualDisc=true; log(st===3 ? '기기가 새 휴대폰을 받지 않는 중이에요. 기기 설정 3쪽에서 "새 휴대폰 받기"를 켜 주세요' : '기기에서 연결을 거부했어요'); }
     return;
   }
   if(!authOK && s[0]!=='S') onAuthed();              // 예전 펌웨어: 허락 절차 없이 바로 데이터가 옴
