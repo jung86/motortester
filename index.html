@@ -114,7 +114,7 @@
   <button id="sync" class="wide" disabled>시간 동기화</button>
   <button id="install" class="wide">홈 화면에 설치</button>
 </div>
-<div id="ver">앱 버전 13</div>
+<div id="ver">앱 버전 14</div>
 <div id="myCode"></div>
 </section>
 
@@ -215,7 +215,7 @@ let dev=null, timeCh=null, dataCh=null, cmdCh=null, manualDisc=false, devState=-
 let listenCh=null, wakeLock=null;
 let pk={f:0,r:0,v:0}, hitT={f:0,r:0,v:0};
 const hist=[]; const rec=[];
-let authOK=false;
+let authOK=false, reconnGen=0;
 // 이 휴대폰의 고유 번호 (처음 한 번 만들어서 저장). 기기 화면에는 끝 4자리가 확인 코드로 나옴
 let myId = null;
 try{ myId = localStorage.getItem('mtId'); }catch(e){}
@@ -380,19 +380,22 @@ async function onAuthed(){
 }
 async function onDisc(){
   timeCh=dataCh=cmdCh=null; authOK=false; $('authBox').classList.remove('show'); setConn(false,'연결 끊김');
+  const g=++reconnGen;                        // 새로 연결을 누르면 예전 재연결 시도는 그만둠
   if(manualDisc){manualDisc=false; keepAwake(false); return;}
   for(let i=0;i<5;i++){
     log(`재연결 시도 ${i+1}/5…`);
     await new Promise(r=>setTimeout(r,2000));
-    try{ await attach(); log('재연결됨'); return; }catch(e){}
+    if(g!==reconnGen || (dev && dev.gatt.connected)) return;
+    try{ await attach(); if(g===reconnGen) log('재연결됨'); return; }catch(e){}
   }
+  if(g!==reconnGen) return;
   keepAwake(false);
   log('재연결 실패. 다시 연결을 눌러 주세요.');
 }
 
 $('conn').onclick = ()=>{
   if(dev && dev.gatt.connected){ manualDisc=true; dev.gatt.disconnect(); }
-  else connect();
+  else { reconnGen++; connect(); }
 };
 $('sync').onclick = syncTime;
 $('authCancel').onclick = ()=>{ $('authBox').classList.remove('show'); if(dev && dev.gatt.connected){ manualDisc=true; dev.gatt.disconnect(); } };
