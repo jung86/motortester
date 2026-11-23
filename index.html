@@ -62,6 +62,11 @@
   .tile.t2{border-color:#f59e0b}.tile.t2 svg{background:#78350f}
   .tile.t3{border-color:#64748b}.tile.t3 svg{background:#334155}
   .tile.t4{border-color:#a78bfa}.tile.t4 svg{background:#3b2a6b}
+  .tile.t5{border-color:#f472b6}.tile.t5 svg{background:#831843}
+  .res{display:grid;grid-template-columns:1fr auto;row-gap:10px;font-size:15px;margin-top:10px}
+  .res span:nth-child(odd){color:var(--sub)}
+  .res span:nth-child(even){color:#64748b;font-weight:700;font-variant-numeric:tabular-nums}
+  .empty{font-size:13px;color:#64748b;text-align:center;padding:14px 0 6px}
   .srow{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:14px;padding:10px 12px;margin-bottom:8px}
   .srow .nm{flex:1;font-size:15px;font-weight:600}
   .srow .nm small{display:block;font-size:12px;font-weight:400;color:var(--sub);margin-top:2px}
@@ -114,7 +119,7 @@
   <button id="sync" class="wide" disabled>시간 동기화</button>
   <button id="install" class="wide">홈 화면에 설치</button>
 </div>
-<div id="ver">앱 버전 14</div>
+<div id="ver">앱 버전 15</div>
 <div id="myCode"></div>
 </section>
 
@@ -144,6 +149,15 @@
   <canvas id="chart"></canvas>
 </div>
 
+<div class="card">
+  <div class="lbl"><span>모터 상태 (대략)</span><span>참고용</span></div>
+  <div style="display:flex;align-items:baseline;gap:10px;margin-top:6px">
+    <div class="mid" id="wob" style="font-size:28px">--</div><span class="unit" style="margin:0">% 흔들림</span>
+    <span class="sig" id="wobG" style="margin-left:auto;font-size:14px;padding:4px 12px">측정 대기</span>
+  </div>
+  <div class="peak" style="margin-top:4px">약 3초 동안 회전수가 흔들린 정도예요. 작을수록 고르게 돌아요. "소음 많음"이면 값이 실제보다 크게 나올 수 있어요.</div>
+</div>
+
 <div class="sec">기기 조작 <span id="dstate"></span></div>
 <div class="dev two">
   <button id="bLearn" class="learn" disabled>소음 학습</button>
@@ -154,6 +168,22 @@
 <div class="btns">
   <button id="reset">피크 초기화</button>
   <button id="csv">기록 저장 (CSV)</button>
+</div>
+
+<div class="sec">정밀 진단 (전류 · 온도 · 회전 센서 연결 후)</div>
+<div class="card">
+  <div class="res" style="margin-top:0">
+    <span>무부하 전류</span><span>-- A</span>
+    <span>정방향 / 역방향 차이</span><span>-- %</span>
+    <span>모터 온도</span><span>-- ℃</span>
+    <span>추정 토크</span><span>--</span>
+    <span>컨디션 점수</span><span>-- 점</span>
+  </div>
+</div>
+<div class="btns">
+  <button class="wide" disabled>진단 시작</button>
+  <button disabled>이 결과 저장</button>
+  <button disabled>모터 비교</button>
 </div>
 </section>
 
@@ -271,7 +301,7 @@ async function sendCmd(c){
   }catch(e){ log('명령 실패: '+e.message); }
 }
 function showState(st,learned){
-  const names=['측정 중','멈춤','소음 학습 중','시계 화면','메뉴','모터 런','모터 길들이기','설정'];
+  const names=['측정 중','멈춤','소음 학습 중','시계 화면','메뉴','모터 런','모터 길들이기','설정','모터 진단'];
   $('dstate').textContent = st<0 ? '' : '기기: '+(names[st]||'');
   $('bHold').textContent = st===1 ? '재개' : '멈춤';
   $('bHold').classList.toggle('on',st===1);
@@ -306,6 +336,14 @@ function onData(ev){
   $('rpm').textContent  = valid? Math.round(r).toLocaleString() : '---';
   ['r','b'].forEach(k=>{ $(k+'F').textContent = valid? Math.round(f) : '---'; $(k+'R').textContent = valid? (Math.round(r/10)*10).toLocaleString() : '---'; });
   $('vib').textContent  = isNaN(v)?'---':v.toFixed(3);
+  const wb = parts.length>=7 ? parts[6] : -1;        // 회전 흔들림(%) — 새 펌웨어만 보냄
+  const noisy = parts.length>=8 && parts[7]===1;     // 소음에 묻혀 흔들림 값을 믿기 어려움
+  const wg = $('wobG');
+  if(valid && wb>=0){
+    $('wob').textContent = wb.toFixed(1);
+    const g = noisy ? ['소음 많음','#334155','#cbd5e1'] : wb<0.6 ? ['안정','#14532d','#86efac'] : wb<1.5 ? ['보통','#78350f','#fcd34d'] : ['흔들림','#7f1d1d','#fca5a5'];
+    wg.textContent=g[0]; wg.style.background=g[1]; wg.style.color=g[2];
+  } else { $('wob').textContent='--'; wg.textContent = valid ? '재는 중…' : '측정 대기'; wg.style.background=''; wg.style.color=''; }
   $('vbar').style.width = Math.min(100,(v||0)/0.1*100)+'%';   // 0.1g = 가득
   if(valid){
     if(f>pk.f){pk.f=f;hitT.f=t;} if(r>pk.r){pk.r=r;hitT.r=t;}
@@ -313,7 +351,7 @@ function onData(ev){
   if(v>pk.v){pk.v=v;hitT.v=t;}
   drawPeaks(t);
   hist.push({t,f:valid?f:null}); while(hist.length && t-hist[0].t>60000) hist.shift();
-  rec.push([new Date(t).toISOString(),f,r,v,valid?1:0]); if(rec.length>200000) rec.shift();
+  rec.push([new Date(t).toISOString(),f,r,v,valid?1:0,wb>=0?wb:'',wb>=0?(noisy?1:0):'']); if(rec.length>200000) rec.shift();
   drawChart();
 }
 function drawPeaks(t){
@@ -458,7 +496,7 @@ $('tClock').onclick=()=>{ if(!cmdCh){ log('먼저 블루투스를 연결해 주�
 $('reset').onclick = ()=>{ sendCmd('RESET'); pk={f:0,r:0,v:0}; hitT={f:0,r:0,v:0}; drawPeaks(Date.now()); log('피크 초기화'); };
 $('csv').onclick = ()=>{
   if(!rec.length){log('저장할 기록이 없어요');return;}
-  const txt='time,freq_hz,rpm,vib,valid\n'+rec.map(r=>r.join(',')).join('\n');
+  const txt='time,freq_hz,rpm,vib,valid,wobble_pct,wobble_noisy\n'+rec.map(r=>r.join(',')).join('\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([txt],{type:'text/csv'}));
   a.download='motor_'+nowStr().replace(/[: ]/g,'-')+'.csv'; a.click();
 };
