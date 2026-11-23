@@ -29,7 +29,7 @@
   .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .bar{height:8px;background:#0b1222;border-radius:4px;margin-top:8px;overflow:hidden}
   .bar>div{height:100%;width:0;background:var(--amber);transition:width .15s}
-  canvas{width:100%;height:110px;display:block}
+  canvas{width:100%;height:96px;display:block}
   .btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
   button{border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:600;color:#fff;background:#334155}
   button.pri{background:var(--green);color:#052e16}
@@ -84,6 +84,22 @@
   #splash img{width:min(94vw,94vh);height:auto;border-radius:12px}
   #splash.hide{opacity:0;pointer-events:none}
   #ver{font-size:11px;color:#475569;text-align:center;margin-top:16px}
+  .hero{display:flex;align-items:flex-end;justify-content:space-between}
+  .sigbox{text-align:center;padding-bottom:8px}
+  .sigbox small,.stat3 small{display:block;font-size:11.5px;color:var(--sub);font-weight:400;margin-top:3px}
+  .bars{display:flex;gap:4px;align-items:flex-end;height:30px}
+  .bars i{width:9px;border-radius:2px;background:#334155}
+  .bars i:nth-child(1){height:10px}.bars i:nth-child(2){height:15px}.bars i:nth-child(3){height:20px}.bars i:nth-child(4){height:25px}.bars i:nth-child(5){height:30px}
+  .stat3{display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;border-top:1px solid #334155;margin-top:8px;padding-top:8px}
+  .stat3 b{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--txt)}
+  .stat3 .peak b{color:#fca5a5}.stat3 .peak.hit b{color:var(--red)}
+  .tri{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .card.c{padding:10px 10px 12px;text-align:center}
+  .card.c .lbl{justify-content:center}
+  .mid2{font-size:23px;font-weight:700;font-variant-numeric:tabular-nums;margin:4px 0 3px}
+  .card.c .peak{font-size:11.5px}
+  .card.c .sig{display:inline-block;font-size:12px;padding:3px 8px}
+  .hint{font-size:12px;color:#64748b;margin:0 4px 4px;line-height:1.45}
   .live{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .steps{list-style:none;margin:8px 0 0;padding:0}
   .steps li{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid #334155;font-size:15px}
@@ -119,28 +135,40 @@
   <button id="sync" class="wide" disabled>시간 동기화</button>
   <button id="install" class="wide">홈 화면에 설치</button>
 </div>
-<div id="ver">앱 버전 15</div>
+<div id="ver">앱 버전 16</div>
 <div id="myCode"></div>
 </section>
 
 <section class="page" id="pgMeasure">
 <div class="card">
   <div class="lbl"><span>파노 (주파수)</span><span class="sig" id="sig">신호 없음</span></div>
-  <div class="big"><span id="freq">---</span><span class="unit">Hz</span></div>
-  <div class="peak" id="pkF">피크 <b id="pkFv">-</b> Hz</div>
+  <div class="hero">
+    <div class="big"><span id="freq">---</span><span class="unit">Hz</span></div>
+    <div class="sigbox"><div class="bars" id="sigBars"><i></i><i></i><i></i><i></i><i></i></div><small>신호 세기</small></div>
+  </div>
+  <div class="stat3">
+    <div><b id="avg3">---</b><small>3초 평균</small></div>
+    <div class="peak" id="pkF"><b id="pkFv">-</b><small>최고</small></div>
+    <div><b id="rng">---</b><small>60초 범위</small></div>
+  </div>
 </div>
 
-<div class="row">
-  <div class="card">
-    <div class="lbl"><span>RPM (파노×60)</span></div>
-    <div class="mid" id="rpm">---</div>
-    <div class="peak" id="pkR">피크 <b id="pkRv">-</b></div>
+<div class="tri">
+  <div class="card c">
+    <div class="lbl"><span>RPM</span></div>
+    <div class="mid2" id="rpm">---</div>
+    <div class="peak" id="pkR">최고 <b id="pkRv">-</b></div>
   </div>
-  <div class="card">
-    <div class="lbl"><span>진동</span></div>
-    <div class="mid" id="vib">---</div>
+  <div class="card c">
+    <div class="lbl"><span>진동 g</span></div>
+    <div class="mid2" id="vib">---</div>
     <div class="bar"><div id="vbar"></div></div>
-    <div class="peak" id="pkV">피크 <b id="pkVv">-</b></div>
+    <div class="peak" id="pkV">최고 <b id="pkVv">-</b></div>
+  </div>
+  <div class="card c">
+    <div class="lbl"><span>흔들림 %</span></div>
+    <div class="mid2" id="wob">--</div>
+    <div><span class="sig" id="wobG">측정 대기</span></div>
   </div>
 </div>
 
@@ -148,15 +176,7 @@
   <div class="lbl"><span>파노 추이 (최근 60초)</span></div>
   <canvas id="chart"></canvas>
 </div>
-
-<div class="card">
-  <div class="lbl"><span>모터 상태 (대략)</span><span>참고용</span></div>
-  <div style="display:flex;align-items:baseline;gap:10px;margin-top:6px">
-    <div class="mid" id="wob" style="font-size:28px">--</div><span class="unit" style="margin:0">% 흔들림</span>
-    <span class="sig" id="wobG" style="margin-left:auto;font-size:14px;padding:4px 12px">측정 대기</span>
-  </div>
-  <div class="peak" style="margin-top:4px">약 3초 동안 회전수가 흔들린 정도예요. 작을수록 고르게 돌아요. "소음 많음"이면 값이 실제보다 크게 나올 수 있어요.</div>
-</div>
+<div class="hint">흔들림은 약 3초 동안 회전수가 흔들린 정도예요(작을수록 고르게 돌아요). "소음 많음"이면 실제보다 크게 나올 수 있어요.</div>
 
 <div class="sec">기기 조작 <span id="dstate"></span></div>
 <div class="dev two">
@@ -336,6 +356,8 @@ function onData(ev){
   $('rpm').textContent  = valid? Math.round(r).toLocaleString() : '---';
   ['r','b'].forEach(k=>{ $(k+'F').textContent = valid? Math.round(f) : '---'; $(k+'R').textContent = valid? (Math.round(r/10)*10).toLocaleString() : '---'; });
   $('vib').textContent  = isNaN(v)?'---':v.toFixed(3);
+  const bars = parts.length>=9 ? parts[8] : -1;      // 신호 세기 0~5 — 새 펌웨어만 보냄
+  [...$('sigBars').children].forEach((el,i)=>{ el.style.background = (valid && i<bars) ? (bars>=3?'#22c55e':bars===2?'#f59e0b':'#ef4444') : ''; });
   const wb = parts.length>=7 ? parts[6] : -1;        // 회전 흔들림(%) — 새 펌웨어만 보냄
   const noisy = parts.length>=8 && parts[7]===1;     // 소음에 묻혀 흔들림 값을 믿기 어려움
   const wg = $('wobG');
@@ -351,6 +373,9 @@ function onData(ev){
   if(v>pk.v){pk.v=v;hitT.v=t;}
   drawPeaks(t);
   hist.push({t,f:valid?f:null}); while(hist.length && t-hist[0].t>60000) hist.shift();
+  const hv=hist.filter(p=>p.f!=null), h3=hv.filter(p=>t-p.t<=3000);
+  $('avg3').textContent = (valid && h3.length>=4) ? (h3.reduce((a,p)=>a+p.f,0)/h3.length).toFixed(1) : '---';
+  $('rng').textContent = hv.length ? Math.round(Math.min(...hv.map(p=>p.f)))+'~'+Math.round(Math.max(...hv.map(p=>p.f))) : '---';
   rec.push([new Date(t).toISOString(),f,r,v,valid?1:0,wb>=0?wb:'',wb>=0?(noisy?1:0):'']); if(rec.length>200000) rec.shift();
   drawChart();
 }
